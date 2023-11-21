@@ -1,6 +1,6 @@
 import os
 import PyPDF2
-
+### need to make a separate thread that loads the next set of speech from text so that there is smooth audio
 
 class AudioBook:
     def __init__(self) -> None:
@@ -10,6 +10,7 @@ class AudioBook:
             'read': self.read
         }
         self.isOn = True
+        self.currentPage = None
 
     def quit(self):
         self.isOn = False
@@ -26,17 +27,23 @@ class AudioBook:
 
     def read(self, bookName, pageNum:False): 
         bookName = bookName[0]
-        if isinstance(bookName, int):
+        check = self.num_check(bookName)
+        if check:
             catalog = os.listdir('Books')
             bookName = catalog[bookName]
         pdfFileObj = open(f'Books/{bookName}.pdf', 'rb')
         self.book = PyPDF2.PdfReader(pdfFileObj)
 
         if pageNum:
-            self.current = pageNum
+            self.currentPage = pageNum
         else:
             self.currentPage = self.get_first_page()
 
+    def num_check(self, var):
+        try:
+            return int(var)
+        except:
+            return False
 
     def get_first_page(self): 
         diff = 0
