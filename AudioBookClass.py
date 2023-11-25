@@ -1,5 +1,7 @@
 import os
 import PyPDF2
+from elevenlabs import voices, generate, play, set_api_key
+from API_KEYS import API_KEY
 ### need to make a separate thread that loads the next set of speech from text so that there is smooth audio
 
 class AudioBook:
@@ -11,6 +13,10 @@ class AudioBook:
         }
         self.isOn = True
         self.currentPage = None
+
+        set_api_key(API_KEY)
+        voices = voices()
+        self.voice = voices[-2]
 
     def quit(self):
         self.isOn = False
@@ -39,6 +45,8 @@ class AudioBook:
         else:
             self.currentPage = self.get_first_page()
 
+        self.reading()
+
     def num_check(self, var):
         try:
             return int(var)
@@ -57,3 +65,8 @@ class AudioBook:
             ind += 1
         return ind
         
+    def reading(self, ):
+        voices = voices()
+        while True:
+            # get(text here)
+            audio = generate(text=text, voice=self.voice)

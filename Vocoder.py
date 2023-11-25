@@ -1,4 +1,4 @@
-from elevenlabs import voices, generate
+from elevenlabs import voices, generate, play, set_api_key
 from elevenlabs import clone, generate, play,  set_api_key
 from API_KEYS import API_KEY
 
