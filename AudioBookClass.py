@@ -1,7 +1,9 @@
 import os
 import PyPDF2
-from elevenlabs import voices, generate, play, set_api_key
+from elevenlabs import voices, generate, play, set_api_key, stream
 from API_KEYS import API_KEY
+import threading
+import keyboard
 ### need to make a separate thread that loads the next set of speech from text so that there is smooth audio
 
 class AudioBook:
@@ -15,8 +17,9 @@ class AudioBook:
         self.currentPage = None
 
         set_api_key(API_KEY)
-        voices = voices()
-        self.voice = voices[-2]
+        vcs = voices()
+        self.voice = vcs[-2]
+        self.reading = True
 
     def quit(self):
         self.isOn = False
@@ -40,12 +43,13 @@ class AudioBook:
         pdfFileObj = open(f'Books/{bookName}.pdf', 'rb')
         self.book = PyPDF2.PdfReader(pdfFileObj)
 
+        # add a way to store the pagenum in a textfile when quitting
         if pageNum:
             self.currentPage = pageNum
         else:
             self.currentPage = self.get_first_page()
 
-        self.reading()
+        self.tts()
 
     def num_check(self, var):
         try:
@@ -65,8 +69,36 @@ class AudioBook:
             ind += 1
         return ind
         
-    def reading(self, ):
-        voices = voices()
-        while True:
-            # get(text here)
-            audio = generate(text=text, voice=self.voice)
+    def tts(self):
+        """
+        self.book = PyPDF2.PdfReader(pdfFileObj) # the chosen pdf
+        pageObj = self.book.pages[self.currentPage]  # ust to get current page
+        pageText = pageObj.extract_text() # text from pdf of page
+
+        """
+        #input listening thread
+        thread = threading.Thread(target=self.input_listener)
+        thread.start()
+
+        while self.reading:
+            pageObj = self.book.pages[self.currentPage]  # ust to get current page
+            pageText = pageObj.extract_text() # text from pdf of page
+            audio = generate(text=pageText, voice=self.voice)
+            play(audio)
+            # stream(audio)
+            self.currentPage += 1
+            print(f'Curent Page: {self.currentPage}')
+
+    def input_listener(self):
+        inp = input()
+        if inp == 'pause':
+            self.reading = False
+            while True:
+                if keyboard.is_pressed('q'):
+                    break
+            self.reading = True
+            self.tts()
+        elif inp == 'quit':
+            self.reading = False
+                 
+        
