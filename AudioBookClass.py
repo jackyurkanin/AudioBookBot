@@ -34,18 +34,18 @@ class AudioBook:
 
         print('---------------------------------')
 
-    def read(self, bookName, pageNum:False): 
-        bookName = bookName[0]
+    def read(self, package): 
+        bookName = package[0]
         check = self.num_check(bookName)
-        if check:
+        if check != None and check != 0:
             catalog = os.listdir('Books')
             bookName = catalog[bookName]
         pdfFileObj = open(f'Books/{bookName}.pdf', 'rb')
         self.book = PyPDF2.PdfReader(pdfFileObj)
 
         # add a way to store the pagenum in a textfile when quitting
-        if pageNum:
-            self.currentPage = pageNum
+        if len(package) == 2:
+            self.currentPage = package[1]
         else:
             self.currentPage = self.get_first_page()
 
@@ -53,6 +53,7 @@ class AudioBook:
 
     def num_check(self, var):
         try:
+            print('hello', var)
             return int(var)
         except:
             return False
