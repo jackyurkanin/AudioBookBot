@@ -1,9 +1,15 @@
 import os
 import PyPDF2
-from elevenlabs import voices, generate, play, set_api_key, stream
-from API_KEYS import API_KEY
 import threading
-### need to make a separate thread that loads the next set of speech from text so that there is smooth audio
+import torch
+from TTS.api import TTS
+import pyaudio
+import wave
+import time
+
+# Get device
+device = "cuda" if torch.cuda.is_available() else "cpu"
+file_path = "output.wav"
 
 class AudioBook:
     def __init__(self) -> None:
@@ -14,14 +20,23 @@ class AudioBook:
         }
         self.isOn = True
         self.currentPage = None
-
-        set_api_key(API_KEY)
-        vcs = voices()
-        self.voice = vcs[-2]
+        self.voice = ""
         self.reading = True
         self.lastBook = False
 
+        self.tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+        self.stream = None
+        self.speaker = pyaudio.PyAudio()
+        self.wf = None
+        self.is_paused = False
+
     def quit(self):
+        if self.stream:
+            self.stream.close()
+        if self.speaker:
+            self.speaker.terminate()
+        if self.wf:
+            self.wf.close()
         self.isOn = False
 
     def library(self):
@@ -35,8 +50,14 @@ class AudioBook:
         print('---------------------------------')
 
     def read(self, package): 
+        def num_check(var):
+            try:
+                return int(var)
+            except:
+                return False
+        
         bookName = package[0]
-        check = self.num_check(bookName)
+        check = num_check(bookName)
         if check != None or check == 0:
             catalog = os.listdir('Books')
             bookName = catalog[check]
@@ -53,12 +74,6 @@ class AudioBook:
 
         self.lastBook = bookName
         self.tts()
-
-    def num_check(self, var):
-        try:
-            return int(var)
-        except:
-            return False
 
     def get_first_page(self): 
         diff = 0
@@ -86,23 +101,58 @@ class AudioBook:
         while self.reading:
             pageObj = self.book.pages[self.currentPage]  # ust to get current page
             pageText = pageObj.extract_text() # text from pdf of page
-            audio = generate(text=pageText, voice=self.voice, stream=True)
-            # play(audio) 
-            stream(audio)
+            self.tts.tts_to_file(text=pageText, speaker_wav="morganFreemanAudio/mf_audio.wav", language="en", output_path=file_path)
+            
+            # open wav
+            self.wf = wave.open(file_path, "rb")
+
+            self.stream = self.speaker.open(format=self.speaker.get_format_from_width(self.wf.getsampwidth()),
+                    channels=self.wf.getnchannels(),
+                    rate=self.wf.getframerate(),
+                    output=True)
+
+            # Read and play audio frames
+            chunk_size = 1024
+            data = self.wf.readframes(chunk_size)
+            while data and self.stream:
+                if not self.is_paused:
+                    self.stream.write(data)
+                    data = self.wf.readframes(chunk_size)
+                else:
+                    time.sleep(0.1)  # Wait while paused
+
+            # Stop and close the stream
+            self.stream.stop_stream()
+            self.stream.close()
+            self.wf.close()
             self.currentPage += 1
             print(f'Curent Page: {self.currentPage}')
+        
+        thread.join()
+        print(thread.is_alive())
 
     def input_listener(self):
-        inp = input()
-        if inp == 'pause':
-            self.reading = False
-            inp = input('continue? Y/N: ')
-            if inp == 'Y' or inp == 'y':
-                self.reading = True
-                self.tts()
-            else:
+        while self.stream:
+            inp = input()
+            if inp == 'pause':
+                print("Paused")
+                self.is_paused = False
+                inp = input('continue? Y/N: ')
+                if inp == 'Y' or inp == 'y':
+                    print("Resumed")
+                    self.is_paused = True
+                else:
+                    print("Stopped")
+                    self.stream.stop_stream()
+                    self.stream.close()
+                    self.reading = False
+            elif inp == 'quit':
+                print("Stopped")
+                self.stream.stop_stream()
+                self.stream.close()
                 self.reading = False
-        elif inp == 'quit':
-            self.reading = False
+            else:
+                print('please use: pause or quit')
+                continue
                  
         
